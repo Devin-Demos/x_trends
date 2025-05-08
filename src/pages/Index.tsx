@@ -31,7 +31,7 @@ const Index = () => {
       // Show initial loading state
       toast({
         title: "Searching tweets",
-        description: "Fetching tweet counts from the past 7 days...",
+        description: "Fetching tweet counts from the past 3 days...",
       });
       
       // Fetch all tweet counts
