@@ -161,9 +161,11 @@ async def refresh_topic_data(topic_name: str):
             "Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"
         }
         
-        now = datetime.now()
-        end_date = now + timedelta(minutes=2)
-        start_date = now - timedelta(days=7)
+        now = datetime.utcnow()
+        
+        end_date = now - timedelta(seconds=30)
+        
+        start_date = end_date - timedelta(days=7)
         
         end_date = end_date.replace(second=0, microsecond=0)
         start_date = start_date.replace(second=0, microsecond=0)
