@@ -9,13 +9,22 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const NEWS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+let newsCache = {
+  articles: [],
+  timestamp: 0
+};
+
 // Configure CORS
 const corsOptions = {
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    // allow any localhost port
-    if (origin.startsWith('http://localhost:')) {
+    // allow any localhost port and deployed frontend
+    if (origin.startsWith('http://localhost:') || 
+        origin.startsWith('https://') || 
+        origin.includes('.fly.dev') || 
+        origin.includes('.vercel.app')) {
       return callback(null, true);
     } else {
       return callback(new Error('Not allowed by CORS'));
@@ -239,6 +248,177 @@ app.post('/api/search/counts', authenticateRequest, async (req, res) => {
 
     res.status(500).json({ 
       error: 'Error fetching tweet counts from X API',
+      details: error.response?.data?.detail || error.message 
+    });
+  }
+});
+
+// AI News endpoint
+app.get('/api/news', authenticateRequest, async (req, res) => {
+  try {
+    console.log('Received AI news request');
+    
+    if (newsCache.articles.length > 0 && (Date.now() - newsCache.timestamp < NEWS_CACHE_TTL)) {
+      console.log('Using cached AI news articles');
+      return res.json({
+        articles: newsCache.articles,
+        meta: {
+          cached: true,
+          timestamp: newsCache.timestamp
+        }
+      });
+    }
+    
+    const aiKeywords = [
+      'artificial intelligence',
+      'machine learning',
+      'deep learning',
+      'AI news',
+      'LLM',
+      'large language model',
+      'GPT',
+      'ChatGPT',
+      'AI research',
+      'computer vision',
+      'neural networks',
+      'generative AI'
+    ];
+    
+    // Set up request parameters
+    const params = {
+      query: aiKeywords.join(' OR '),
+      max_results: 50,
+      'tweet.fields': 'created_at,public_metrics,author_id,entities',
+      'user.fields': 'name,username,profile_image_url,verified',
+      expansions: 'author_id,attachments.media_keys',
+      'media.fields': 'url,preview_image_url,type'
+    };
+    
+    console.log('Making request to Twitter API with params:', params);
+    
+    // Make request to X API
+    const response = await axios.get(X_API_URL, {
+      params,
+      headers: {
+        Authorization: `Bearer ${req.bearerToken}`
+      }
+    });
+    
+    console.log('Received response from Twitter API');
+    
+    // Process the response
+    const { data, includes } = response.data;
+    
+    // Create a map of users by ID for easy lookup
+    const userMap = {};
+    if (includes && includes.users) {
+      includes.users.forEach(user => {
+        userMap[user.id] = user;
+      });
+    }
+    
+    // Create a map of media by media_key for easy lookup
+    const mediaMap = {};
+    if (includes && includes.media) {
+      includes.media.forEach(media => {
+        mediaMap[media.media_key] = media;
+      });
+    }
+    
+    // Format tweets as news articles
+    const articles = data.map(tweet => {
+      const author = userMap[tweet.author_id] || {
+        id: tweet.author_id,
+        name: 'Unknown User',
+        username: 'unknown',
+        profile_image_url: 'https://abs.twimg.com/sticky/default_profile_images/default_profile_normal.png',
+        verified: false
+      };
+      
+      let urls = [];
+      let images = [];
+      
+      if (tweet.entities && tweet.entities.urls) {
+        urls = tweet.entities.urls.map(url => ({
+          url: url.expanded_url,
+          title: url.title || url.display_url,
+          description: url.description || ''
+        }));
+      }
+      
+      if (tweet.attachments && tweet.attachments.media_keys) {
+        images = tweet.attachments.media_keys
+          .map(key => mediaMap[key])
+          .filter(media => media && (media.type === 'photo' || media.type === 'animated_gif'))
+          .map(media => media.url || media.preview_image_url);
+      }
+      
+      return {
+        id: tweet.id,
+        title: tweet.text.split('\n')[0].substring(0, 100) + (tweet.text.length > 100 ? '...' : ''),
+        content: tweet.text,
+        publishedAt: tweet.created_at,
+        source: 'Twitter/X',
+        author: {
+          id: author.id,
+          name: author.name,
+          username: author.username,
+          profileImageUrl: author.profile_image_url,
+          verified: author.verified
+        },
+        metrics: tweet.public_metrics || {
+          retweet_count: 0,
+          reply_count: 0,
+          like_count: 0,
+          quote_count: 0
+        },
+        url: `https://twitter.com/${author.username}/status/${tweet.id}`,
+        urls: urls,
+        images: images
+      };
+    });
+    
+    articles.sort((a, b) => {
+      const engagementA = a.metrics.like_count + a.metrics.retweet_count;
+      const engagementB = b.metrics.like_count + b.metrics.retweet_count;
+      return engagementB - engagementA;
+    });
+    
+    newsCache.articles = articles;
+    newsCache.timestamp = Date.now();
+    
+    res.json({
+      articles,
+      meta: {
+        cached: false,
+        timestamp: newsCache.timestamp
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
+    // Handle rate limiting specifically
+    if (error.response?.status === 429) {
+      return res.status(429).json({ 
+        error: 'X API rate limit exceeded. Please try again later.',
+        resetTime: error.response.headers['x-rate-limit-reset']
+      });
+    }
+    
+    // Handle authentication errors
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return res.status(error.response.status).json({ 
+        error: 'Authentication error with X API. Please check your API key.'
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Error fetching AI news from X API',
       details: error.response?.data?.detail || error.message 
     });
   }
