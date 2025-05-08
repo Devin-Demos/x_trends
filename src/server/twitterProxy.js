@@ -20,8 +20,11 @@ const corsOptions = {
   origin: function (origin, callback) {
     // allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
-    // allow any localhost port
-    if (origin.startsWith('http://localhost:')) {
+    // allow any localhost port and deployed frontend
+    if (origin.startsWith('http://localhost:') || 
+        origin.startsWith('https://') || 
+        origin.includes('.fly.dev') || 
+        origin.includes('.vercel.app')) {
       return callback(null, true);
     } else {
       return callback(new Error('Not allowed by CORS'));
