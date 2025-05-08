@@ -4,7 +4,7 @@ import { TopicForm } from './components/TopicForm'
 import { TopicList } from './components/TopicList'
 import { TrendChart } from './components/TrendChart'
 import { Topic, TopicCreate, TopicUpdate, TrendAnalysis } from './types'
-import { getTopics, createTopic, updateTopic, deleteTopic, refreshTopicData, getTopicTrends } from './api/topics'
+import { getTopics, createTopic, updateTopic, deleteTopic, refreshTopicData, getTopicTrends, getApiStatus } from './api/topics'
 
 function App() {
   const [topics, setTopics] = useState<Topic[]>([])
@@ -13,10 +13,22 @@ function App() {
   const [isEditing, setIsEditing] = useState<Topic | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [twitterApiEnabled, setTwitterApiEnabled] = useState(false)
 
   useEffect(() => {
     fetchTopics()
+    fetchApiStatus()
   }, [])
+  
+  const fetchApiStatus = async () => {
+    try {
+      const status = await getApiStatus()
+      setTwitterApiEnabled(status.twitter_api_enabled)
+    } catch (err) {
+      console.error('Failed to fetch API status:', err)
+      setTwitterApiEnabled(false)
+    }
+  }
 
   const fetchTopics = async () => {
     try {
@@ -35,7 +47,10 @@ function App() {
   const handleCreateTopic = async (topic: TopicCreate) => {
     try {
       await createTopic(topic)
-      fetchTopics()
+      await fetchTopics()
+      
+      await refreshTopicData(topic.name)
+      fetchTrendData(topic.name)
     } catch (err) {
       setError('Failed to create topic')
       console.error(err)
@@ -102,6 +117,11 @@ function App() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-center mb-2">Twitter Discourse Tracker</h1>
         <p className="text-center text-gray-600 mb-6">Monitor trending topics and keywords on Twitter</p>
+        <div className="flex justify-center">
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${twitterApiEnabled ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            {twitterApiEnabled ? 'Using Real Twitter Data' : 'Using Mock Data'}
+          </div>
+        </div>
       </header>
 
       {error && (

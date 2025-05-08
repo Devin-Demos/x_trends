@@ -48,6 +48,11 @@ class TimeSeriesData(BaseModel):
 async def healthz():
     return {"status": "ok"}
 
+@app.get("/api-status")
+async def api_status():
+    """Check if Twitter API is configured"""
+    return {"twitter_api_enabled": bool(TWITTER_BEARER_TOKEN)}
+
 @app.get("/topics", response_model=List[Topic])
 async def get_topics():
     """Get all tracked topics"""
@@ -121,9 +126,9 @@ async def refresh_topic_data(topic_name: str):
     if topic_name not in topics_db:
         return {"error": "Topic not found"}
     
+    keywords = topics_db[topic_name]["keywords"]
+    
     if not TWITTER_BEARER_TOKEN:
-        keywords = topics_db[topic_name]["keywords"]
-        
         mock_data = []
         end_date = datetime.now()
         start_date = end_date - timedelta(days=7)
@@ -143,7 +148,47 @@ async def refresh_topic_data(topic_name: str):
         
         return mock_data
     
-    return {"error": "Twitter API integration not implemented yet"}
+    try:
+        query = " OR ".join(keywords)
+        
+        headers = {
+            "Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"
+        }
+        
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)
+        
+        url = "https://api.twitter.com/2/tweets/counts/recent"
+        
+        params = {
+            "query": query,
+            "granularity": "day",
+            "start_time": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end_time": end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            twitter_data = response.json()
+            
+            formatted_data = []
+            for data_point in twitter_data.get("data", []):
+                formatted_data.append({
+                    "timestamp": data_point.get("end", ""),
+                    "count": data_point.get("tweet_count", 0)
+                })
+            
+            topic_data_db[topic_name] = formatted_data
+            
+            return formatted_data
+        elif response.status_code == 429:
+            return {"error": "Twitter API rate limit exceeded, please try again later"}
+        else:
+            return {"error": f"Twitter API error: {response.status_code} - {response.text}"}
+    except Exception as e:
+        print(f"Error fetching Twitter data: {str(e)}")
+        return {"error": f"Error fetching Twitter data: {str(e)}"}
 
 @app.get("/topics/{topic_name}/trends")
 async def get_topic_trends(topic_name: str):

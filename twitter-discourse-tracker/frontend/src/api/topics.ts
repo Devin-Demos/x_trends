@@ -1,6 +1,19 @@
 import { Topic, TopicCreate, TopicUpdate, TrendAnalysis } from '../types';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
+export const getApiStatus = async (): Promise<{ twitter_api_enabled: boolean }> => {
+  try {
+    const response = await fetch(`${API_URL}/api-status`);
+    if (!response.ok) {
+      throw new Error('Failed to get API status');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching API status:', error);
+    return { twitter_api_enabled: false };
+  }
+};
 
 export const getTopics = async (): Promise<Topic[]> => {
   const response = await fetch(`${API_URL}/topics`);
