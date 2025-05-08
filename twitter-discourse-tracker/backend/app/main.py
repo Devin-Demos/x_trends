@@ -161,51 +161,51 @@ async def refresh_topic_data(topic_name: str):
             "Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"
         }
         
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=7)
+        now = datetime.now()
+        end_date = now + timedelta(minutes=2)
+        start_date = now - timedelta(days=7)
         
-        url = "https://api.twitter.com/2/tweets/search/recent"
+        end_date = end_date.replace(second=0, microsecond=0)
+        start_date = start_date.replace(second=0, microsecond=0)
+        
+        print(f"Using time range for topic '{topic_name}': {start_date.isoformat()} to {end_date.isoformat()}")
+        
+        url = "https://api.twitter.com/2/tweets/counts/recent"
         
         params = {
             "query": query,
-            "max_results": 100,  # Get more tweets for better analysis
+            "granularity": "day",  # Get counts by day
             "start_time": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end_time": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "tweet.fields": "created_at,public_metrics",  # Get additional fields
-            "expansions": "author_id",
-            "user.fields": "name,username"
+            "end_time": end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         }
         
         response = requests.get(url, headers=headers, params=params)
         
         print(f"Twitter API response for '{topic_name}': Status {response.status_code}")
         if response.status_code != 200:
-            print(f"Twitter API error response: {response.text}")
+            error_text = response.text
+            print(f"Twitter API error response: {error_text}")
+            print(f"Request parameters: start_time={params['start_time']}, end_time={params['end_time']}")
         
         if response.status_code == 200:
             twitter_data = response.json()
             print(f"Twitter API response data: {json.dumps(twitter_data, indent=2)[:500]}...")  # Print first 500 chars to avoid huge logs
             
-            tweets_by_day = {}
+            formatted_data = []
             
             if "data" in twitter_data:
-                print(f"Found {len(twitter_data.get('data', []))} tweets for topic '{topic_name}'")
-                for tweet in twitter_data.get("data", []):
-                    created_at = tweet.get("created_at", "")
-                    if created_at:
-                        date_only = created_at.split("T")[0]
-                        
-                        if date_only not in tweets_by_day:
-                            tweets_by_day[date_only] = 0
-                        
-                        tweets_by_day[date_only] += 1
+                counts_data = twitter_data.get("data", [])
+                print(f"Found {len(counts_data)} count data points for topic '{topic_name}'")
                 
-                formatted_data = []
-                for date, count in tweets_by_day.items():
-                    formatted_data.append({
-                        "timestamp": f"{date}T00:00:00Z",
-                        "count": count
-                    })
+                for count_item in counts_data:
+                    start_time = count_item.get("start", "")
+                    tweet_count = count_item.get("tweet_count", 0)
+                    
+                    if start_time:
+                        formatted_data.append({
+                            "timestamp": start_time,
+                            "count": tweet_count
+                        })
                 
                 formatted_data.sort(key=lambda x: x["timestamp"])
                 
@@ -215,8 +215,8 @@ async def refresh_topic_data(topic_name: str):
                 
                 return formatted_data
             else:
-                print(f"No tweets found for topic '{topic_name}'")
-                return {"error": "No tweets found for the given topic and time range"}
+                print(f"No count data found for topic '{topic_name}'")
+                return {"error": "No count data found for the given topic and time range"}
         elif response.status_code == 429:
             print(f"Twitter API rate limit exceeded for topic '{topic_name}'")
             return {"error": "Twitter API rate limit exceeded, please try again later"}
