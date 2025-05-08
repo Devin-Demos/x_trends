@@ -6,6 +6,7 @@ import Layout from '@/components/Layout';
 import SearchForm from '@/components/SearchForm';
 import TrendChart from '@/components/TrendChart';
 import TopicHistory from '@/components/TopicHistory';
+import NewsAggregator from '@/components/NewsAggregator';
 import { fetchAllPages } from '@/utils/twitterApi';
 import { toast } from '@/components/ui/use-toast';
 import { ChartLine, AlertTriangle } from 'lucide-react';
@@ -122,6 +123,8 @@ const Index = () => {
               <Progress value={loadingProgress} className="h-2" />
             </div>
           )}
+          
+          <NewsAggregator />
           
           {currentTopic && (
             <>
