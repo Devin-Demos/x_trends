@@ -75,5 +75,9 @@ export const getTopicTrends = async (name: string): Promise<TrendAnalysis> => {
   if (!response.ok) {
     throw new Error('Failed to fetch topic trends');
   }
-  return response.json();
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  return data;
 };

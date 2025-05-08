@@ -13,6 +13,22 @@ interface TrendChartProps {
 export function TrendChart({ trendData, topicName }: TrendChartProps) {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   
+  if (!trendData || !trendData.data || !Array.isArray(trendData.data) || trendData.data.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>{topicName} Trends</CardTitle>
+          <CardDescription>No trend data available. Please try refreshing the data.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center items-center h-60">
+            <p className="text-muted-foreground">No data to display</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   const chartData = trendData.data.map(item => ({
     ...item,
     date: format(parseISO(item.timestamp), 'MMM dd'),

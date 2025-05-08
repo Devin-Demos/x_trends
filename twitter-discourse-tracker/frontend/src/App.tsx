@@ -3,6 +3,7 @@ import './App.css'
 import { TopicForm } from './components/TopicForm'
 import { TopicList } from './components/TopicList'
 import { TrendChart } from './components/TrendChart'
+import { Card, CardContent } from './components/ui/card'
 import { Topic, TopicCreate, TopicUpdate, TrendAnalysis } from './types'
 import { getTopics, createTopic, updateTopic, deleteTopic, refreshTopicData, getTopicTrends, getApiStatus } from './api/topics'
 
@@ -12,6 +13,7 @@ function App() {
   const [trendData, setTrendData] = useState<TrendAnalysis | null>(null)
   const [isEditing, setIsEditing] = useState<Topic | null>(null)
   const [loading, setLoading] = useState(true)
+  const [trendLoading, setTrendLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [twitterApiEnabled, setTwitterApiEnabled] = useState(false)
 
@@ -102,13 +104,27 @@ function App() {
 
   const fetchTrendData = async (name: string) => {
     try {
-      const data = await getTopicTrends(name)
-      setTrendData(data)
-      setSelectedTopic(name)
-      setError(null)
+      setTrendLoading(true);
+      setError(null);
+      
+      await refreshTopicData(name);
+      
+      try {
+        const data = await getTopicTrends(name);
+        setTrendData(data);
+        setSelectedTopic(name);
+      } catch (err: any) {
+        if (err.message === 'No data available for trend analysis') {
+          setError('No trend data available yet. Please try again later.');
+        } else {
+          throw err; // Re-throw other errors to be caught by the outer catch
+        }
+      }
     } catch (err) {
-      setError('Failed to fetch trend data')
-      console.error(err)
+      setError('Failed to fetch trend data');
+      console.error(err);
+    } finally {
+      setTrendLoading(false);
     }
   }
 
@@ -159,7 +175,17 @@ function App() {
         </div>
       </div>
 
-      {selectedTopic && trendData && (
+      {selectedTopic && trendLoading && (
+        <div className="mt-8">
+          <Card className="w-full">
+            <CardContent className="flex justify-center items-center h-60">
+              <p>Loading trend data...</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
+      {selectedTopic && trendData && !trendLoading && (
         <div className="mt-8">
           <TrendChart trendData={trendData} topicName={selectedTopic} />
         </div>
