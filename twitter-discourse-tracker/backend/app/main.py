@@ -28,6 +28,12 @@ app.add_middleware(
 topics_db = {}
 topic_data_db = {}
 
+topics_db["global warming"] = {
+    "keywords": ["climate change"],
+    "created_at": datetime.now().isoformat()
+}
+topic_data_db["global warming"] = []
+
 class Topic(BaseModel):
     name: str
     keywords: List[str]
@@ -169,6 +175,10 @@ async def refresh_topic_data(topic_name: str):
         
         response = requests.get(url, headers=headers, params=params)
         
+        print(f"Twitter API response for '{topic_name}': Status {response.status_code}")
+        if response.status_code != 200:
+            print(f"Twitter API error response: {response.text}")
+        
         if response.status_code == 200:
             twitter_data = response.json()
             
@@ -180,6 +190,8 @@ async def refresh_topic_data(topic_name: str):
                 })
             
             topic_data_db[topic_name] = formatted_data
+            
+            print(f"Successfully refreshed data for topic '{topic_name}' with {len(formatted_data)} data points")
             
             return formatted_data
         elif response.status_code == 429:
@@ -194,12 +206,22 @@ async def refresh_topic_data(topic_name: str):
 async def get_topic_trends(topic_name: str):
     """Get trend analysis for a topic"""
     if topic_name not in topics_db:
+        print(f"Topic not found: '{topic_name}'")
+        print(f"Available topics: {list(topics_db.keys())}")
         return {"error": "Topic not found"}
     
     data = topic_data_db.get(topic_name, [])
     
     if not data:
-        return {"error": "No data available for trend analysis"}
+        print(f"No data available for topic '{topic_name}', attempting to refresh...")
+        refresh_result = await refresh_topic_data(topic_name)
+        
+        if isinstance(refresh_result, dict) and "error" in refresh_result:
+            return refresh_result
+            
+        data = topic_data_db.get(topic_name, [])
+        if not data:
+            return {"error": "No data available for trend analysis"}
     
     counts = [item["count"] for item in data]
     

@@ -64,20 +64,33 @@ export const refreshTopicData = async (name: string): Promise<any> => {
   const response = await fetch(`${API_URL}/topics/${encodeURIComponent(name)}/refresh`, {
     method: 'POST',
   });
+  
   if (!response.ok) {
-    throw new Error('Failed to refresh topic data');
+    const errorData = await response.json();
+    const errorMessage = errorData.error || `Failed to refresh topic data: ${response.status}`;
+    console.error(`API error: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
+  
   return response.json();
 };
 
 export const getTopicTrends = async (name: string): Promise<TrendAnalysis> => {
   const response = await fetch(`${API_URL}/topics/${encodeURIComponent(name)}/trends`);
+  
   if (!response.ok) {
-    throw new Error('Failed to fetch topic trends');
+    const errorData = await response.json();
+    const errorMessage = errorData.error || `Failed to fetch topic trends: ${response.status}`;
+    console.error(`API error: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
+  
   const data = await response.json();
+  
   if (data.error) {
+    console.error(`API returned error: ${data.error}`);
     throw new Error(data.error);
   }
+  
   return data;
 };

@@ -48,14 +48,21 @@ function App() {
 
   const handleCreateTopic = async (topic: TopicCreate) => {
     try {
+      setError(null)
+      setLoading(true)
+      
       await createTopic(topic)
       await fetchTopics()
+      
+      await new Promise(resolve => setTimeout(resolve, 1000))
       
       await refreshTopicData(topic.name)
       fetchTrendData(topic.name)
     } catch (err) {
       setError('Failed to create topic')
       console.error(err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -104,27 +111,37 @@ function App() {
 
   const fetchTrendData = async (name: string) => {
     try {
-      setTrendLoading(true);
-      setError(null);
+      setTrendLoading(true)
+      setError(null)
+      setSelectedTopic(name)
       
-      await refreshTopicData(name);
+      console.log(`Fetching trend data for topic: ${name}`)
       
       try {
-        const data = await getTopicTrends(name);
-        setTrendData(data);
-        setSelectedTopic(name);
-      } catch (err: any) {
-        if (err.message === 'No data available for trend analysis') {
-          setError('No trend data available yet. Please try again later.');
-        } else {
-          throw err; // Re-throw other errors to be caught by the outer catch
-        }
+        await refreshTopicData(name)
+        console.log(`Successfully refreshed data for topic: ${name}`)
+      } catch (refreshErr: any) {
+        console.error(`Error refreshing data: ${refreshErr.message}`)
       }
-    } catch (err) {
-      setError('Failed to fetch trend data');
-      console.error(err);
+      
+      try {
+        const data = await getTopicTrends(name)
+        console.log(`Successfully fetched trend data:`, data)
+        setTrendData(data)
+      } catch (err: any) {
+        console.error(`Error fetching trend data: ${err.message}`)
+        
+        if (err.message === 'No data available for trend analysis') {
+          setError('No trend data available yet. Please try again later.')
+        } else if (err.message === 'Topic not found') {
+          setError(`Topic "${name}" not found. This may be due to server restart. Try creating the topic again.`)
+        } else {
+          setError(`Failed to fetch trend data: ${err.message}`)
+        }
+        setTrendData(null)
+      }
     } finally {
-      setTrendLoading(false);
+      setTrendLoading(false)
     }
   }
 
