@@ -164,13 +164,16 @@ async def refresh_topic_data(topic_name: str):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=7)
         
-        url = "https://api.twitter.com/2/tweets/counts/recent"
+        url = "https://api.twitter.com/2/tweets/search/recent"
         
         params = {
             "query": query,
-            "granularity": "day",
+            "max_results": 100,  # Get more tweets for better analysis
             "start_time": start_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "end_time": end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+            "end_time": end_date.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "tweet.fields": "created_at,public_metrics",  # Get additional fields
+            "expansions": "author_id",
+            "user.fields": "name,username"
         }
         
         response = requests.get(url, headers=headers, params=params)
@@ -181,25 +184,59 @@ async def refresh_topic_data(topic_name: str):
         
         if response.status_code == 200:
             twitter_data = response.json()
+            print(f"Twitter API response data: {json.dumps(twitter_data, indent=2)[:500]}...")  # Print first 500 chars to avoid huge logs
             
-            formatted_data = []
-            for data_point in twitter_data.get("data", []):
-                formatted_data.append({
-                    "timestamp": data_point.get("end", ""),
-                    "count": data_point.get("tweet_count", 0)
-                })
+            tweets_by_day = {}
             
-            topic_data_db[topic_name] = formatted_data
-            
-            print(f"Successfully refreshed data for topic '{topic_name}' with {len(formatted_data)} data points")
-            
-            return formatted_data
+            if "data" in twitter_data:
+                print(f"Found {len(twitter_data.get('data', []))} tweets for topic '{topic_name}'")
+                for tweet in twitter_data.get("data", []):
+                    created_at = tweet.get("created_at", "")
+                    if created_at:
+                        date_only = created_at.split("T")[0]
+                        
+                        if date_only not in tweets_by_day:
+                            tweets_by_day[date_only] = 0
+                        
+                        tweets_by_day[date_only] += 1
+                
+                formatted_data = []
+                for date, count in tweets_by_day.items():
+                    formatted_data.append({
+                        "timestamp": f"{date}T00:00:00Z",
+                        "count": count
+                    })
+                
+                formatted_data.sort(key=lambda x: x["timestamp"])
+                
+                topic_data_db[topic_name] = formatted_data
+                
+                print(f"Successfully refreshed data for topic '{topic_name}' with {len(formatted_data)} data points")
+                
+                return formatted_data
+            else:
+                print(f"No tweets found for topic '{topic_name}'")
+                return {"error": "No tweets found for the given topic and time range"}
         elif response.status_code == 429:
+            print(f"Twitter API rate limit exceeded for topic '{topic_name}'")
             return {"error": "Twitter API rate limit exceeded, please try again later"}
+        elif response.status_code == 401:
+            print(f"Twitter API authentication error for topic '{topic_name}': {response.text}")
+            return {"error": "Twitter API authentication failed. Please check your API token."}
+        elif response.status_code == 403:
+            print(f"Twitter API authorization error for topic '{topic_name}': {response.text}")
+            return {"error": "Twitter API authorization failed. Your token may not have the required permissions."}
         else:
-            return {"error": f"Twitter API error: {response.status_code} - {response.text}"}
+            print(f"Twitter API error for topic '{topic_name}': {response.status_code} - {response.text}")
+            return {"error": f"Twitter API error: {response.status_code}"}
+    except requests.exceptions.RequestException as e:
+        print(f"Network error fetching Twitter data for topic '{topic_name}': {str(e)}")
+        return {"error": f"Network error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error for topic '{topic_name}': {str(e)}")
+        return {"error": "Error parsing Twitter API response"}
     except Exception as e:
-        print(f"Error fetching Twitter data: {str(e)}")
+        print(f"Unexpected error fetching Twitter data for topic '{topic_name}': {str(e)}")
         return {"error": f"Error fetching Twitter data: {str(e)}"}
 
 @app.get("/topics/{topic_name}/trends")
