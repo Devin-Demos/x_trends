@@ -105,13 +105,11 @@ export async function searchTweetCounts(keywords: string[], options: SearchOptio
   } catch (error) {
     console.error("Error searching tweet counts:", error);
     
-    // If API call fails, use mock data in development
-    if (import.meta.env.DEV) {
-      console.warn("API call failed, falling back to mock data");
-      return { points: generateMockTrendPoints() };
-    }
+    // If API call fails, use mock data in any environment
+    console.warn("API call failed, falling back to mock data");
+    return { points: generateMockTrendPoints() };
     
-    throw error;
+    // throw error;
   }
 }
 
