@@ -9,7 +9,9 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node src/server/twitterProxy.js"
+    "server": "node src/server/server.js",
+    "server:twitter": "node src/server/twitterProxy.js",
+    "server:substack": "node src/server/substackProxy.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -42,6 +44,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@tanstack/react-query": "^5.56.2",
     "axios": "^1.9.0",
+    "cheerio": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -52,6 +55,7 @@
     "express": "^5.1.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
+    "natural": "^8.0.1",
     "next-themes": "^0.3.0",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -60,6 +64,7 @@
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^6.26.2",
     "recharts": "^2.12.7",
+    "sentiment": "^5.0.2",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",

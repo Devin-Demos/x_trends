@@ -1,17 +1,18 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { toast } from '@/components/ui/use-toast';
-import { Search, Calendar } from 'lucide-react';
-import { SearchFormData } from '@/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { toast } from '../components/ui/use-toast';
+import { Search, Calendar, BookOpen } from 'lucide-react';
+import { SearchFormData } from '../types';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Calendar as CalendarComponent } from '../components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '../lib/utils';
 
 interface SearchFormProps {
   onSearch: (data: SearchFormData) => void;
@@ -25,6 +26,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [source, setSource] = useState<'twitter' | 'substack'>('twitter');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +53,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
       topicName: topicName.trim(),
       keywords: keywords.trim(),
       options: {
-        maxResults,
         startTime: startDate ? formatDateForTwitter(startDate) : undefined,
         endTime: endDate ? formatDateForTwitter(endDate) : undefined,
+        source
       }
     });
   };
@@ -66,7 +68,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle className="text-brand-800">Search X Trends</CardTitle>
+        <CardTitle className="text-brand-800">Search Content Trends</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,6 +93,20 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
               className="resize-none"
             />
             <p className="text-sm text-muted-foreground">Enter related terms to broaden your search</p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="source">Content Source</Label>
+            <Select value={source} onValueChange={(value: 'twitter' | 'substack') => setSource(value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="twitter">Twitter/X</SelectItem>
+                <SelectItem value="substack">Substack</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">Choose where to search for content</p>
           </div>
           
           <div className="flex items-center">
@@ -173,7 +189,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Limit search to a specific timeframe (X API allows up to 7 days back)
+                  Limit search to a specific timeframe (up to 60 days back)
                 </p>
               </div>
             </div>
@@ -196,7 +212,15 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
             </>
           ) : (
             <>
-              <Search className="mr-2 h-4 w-4" /> Search Twitter
+              {source === 'twitter' ? (
+                <>
+                  <Search className="mr-2 h-4 w-4" /> Search Twitter
+                </>
+              ) : (
+                <>
+                  <BookOpen className="mr-2 h-4 w-4" /> Search Substack
+                </>
+              )}
             </>
           )}
         </Button>
