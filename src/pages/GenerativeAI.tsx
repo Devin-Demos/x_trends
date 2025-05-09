@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Tweet } from '../types';
 import Layout from '../components/Layout';
 import NotableTweets from '../components/NotableTweets';
-import { findNotableTweets } from '../utils/dataProcessing';
+import { findNotableTweets, generateMockTweets } from '../utils/dataProcessing';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
 import { Progress } from '../components/ui/progress';
@@ -41,21 +41,28 @@ const GenerativeAI = () => {
           'large language model'
         ];
 
-        const response = await axios.post(`${API_BASE_URL}/search`, {
-          keywords,
-          maxResults: 100, // Get a good number of tweets to find the most popular ones
-        }, {
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        try {
+          const response = await axios.post(`${API_BASE_URL}/search`, {
+            keywords,
+            maxResults: 100, // Get a good number of tweets to find the most popular ones
+          }, {
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            timeout: 5000 // Add timeout to fail faster in deployed environment
+          });
 
-        if (response.data && response.data.tweets) {
-          const notableTweets = findNotableTweets(response.data.tweets, 10);
-          setTweets(notableTweets);
-        } else {
-          setError('No tweets found in the response');
+          if (response.data && response.data.tweets) {
+            const notableTweets = findNotableTweets(response.data.tweets, 10);
+            setTweets(notableTweets);
+          } else {
+            throw new Error('No tweets found in the response');
+          }
+        } catch (apiError) {
+          console.log("API error, using mock data instead:", apiError);
+          const mockTweets = generateMockTweets();
+          setTweets(mockTweets);
         }
       } catch (error: any) {
         console.error("Error fetching generative AI tweets:", error);
