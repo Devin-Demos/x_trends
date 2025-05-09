@@ -3,6 +3,18 @@ export interface TrendPoint {
   count: number;
 }
 
+export interface Opinion {
+  id: string;
+  text: string;
+  sentiment: number; // -1 to 1 scale
+  momentum: number; // Positive for gaining, negative for losing momentum
+  agreement: number; // Measure of how many people agree with this opinion
+  source: 'twitter' | 'news';
+  keywords: string[];
+  createdAt: string;
+  tweetCount?: number; // Number of tweets expressing this opinion
+}
+
 export interface Tweet {
   id: string;
   text: string;
@@ -32,6 +44,7 @@ export interface TopicData {
   keywords: string[];
   trendData: TrendPoint[];
   notableTweets?: Tweet[];
+  opinions?: Opinion[];
   lastUpdated: string;
   apiStatus: ApiStatusData;
 }
@@ -43,4 +56,4 @@ export interface SearchFormData {
     startTime?: string;
     endTime?: string;
   };
-} 
+}    

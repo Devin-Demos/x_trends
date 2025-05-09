@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TopicData, SearchFormData, TrendPoint, ApiStatusData } from '@/types';
-import Layout from '@/components/Layout';
-import SearchForm from '@/components/SearchForm';
-import TrendChart from '@/components/TrendChart';
-import TopicHistory from '@/components/TopicHistory';
-import { fetchAllPages } from '@/utils/twitterApi';
-import { toast } from '@/components/ui/use-toast';
+import React, { useState, useEffect } from 'react';
+import { Button } from '../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { TopicData, SearchFormData, TrendPoint, ApiStatusData, Opinion } from '../types';
+import Layout from '../components/Layout';
+import SearchForm from '../components/SearchForm';
+import TrendChart from '../components/TrendChart';
+import TopicHistory from '../components/TopicHistory';
+import OpinionMarket from '../components/OpinionMarket';
+import { fetchAllPages } from '../utils/twitterApi';
+import { toast } from '../components/ui/use-toast';
 import { ChartLine, AlertTriangle } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
+import { Progress } from '../components/ui/progress';
+import { groupTweetsIntoOpinions, calculateMomentum, getTopOpinions } from '../utils/sentimentAnalysis';
+import { generateMockTweets } from '../utils/mockData';
 
 const Index = () => {
   const [topics, setTopics] = useState<TopicData[]>([]);
@@ -19,6 +22,32 @@ const Index = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatusData | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [risingOpinions, setRisingOpinions] = useState<Opinion[]>([]);
+  const [fallingOpinions, setFallingOpinions] = useState<Opinion[]>([]);
+  
+  useEffect(() => {
+    if (currentTopic && currentTopic.notableTweets && currentTopic.notableTweets.length > 0) {
+      const opinions = groupTweetsIntoOpinions(currentTopic.notableTweets);
+      
+      const opinionsWithMomentum = calculateMomentum(opinions);
+      
+      const { rising, falling } = getTopOpinions(opinionsWithMomentum, 10);
+      
+      setRisingOpinions(rising);
+      setFallingOpinions(falling);
+      
+      setCurrentTopic(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          opinions: opinionsWithMomentum
+        };
+      });
+    } else {
+      setRisingOpinions([]);
+      setFallingOpinions([]);
+    }
+  }, [currentTopic?.notableTweets]);
 
   const handleSearch = async (formData: SearchFormData) => {
     setIsLoading(true);
@@ -26,17 +55,26 @@ const Index = () => {
     setLoadingProgress(0);
     
     try {
-      const keywords = formData.keywords.split(',').map(k => k.trim());
+      let keywords = formData.keywords.split(',').map(k => k.trim());
+      const aiTechKeywords = ['AI', 'artificial intelligence', 'tech startup', 'technology', 'startup', 'innovation'];
+      
+      if (!keywords.some(k => aiTechKeywords.some(tk => k.toLowerCase().includes(tk.toLowerCase())))) {
+        keywords = [...keywords, ...aiTechKeywords];
+      }
       
       // Show initial loading state
       toast({
         title: "Searching tweets",
-        description: "Fetching tweet counts from the past 7 days...",
+        description: "Fetching AI & tech startup opinions from the past 24 hours...",
       });
+      
+      const oneDayAgo = new Date();
+      oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+      const startTime = oneDayAgo.toISOString();
       
       // Fetch all tweet counts
       const trendData = await fetchAllPages(keywords, {
-        startTime: formData.options.startTime,
+        startTime: startTime,
         endTime: formData.options.endTime
       });
       
@@ -45,6 +83,8 @@ const Index = () => {
         name: formData.topicName,
         keywords,
         trendData,
+        notableTweets: [], // Will be populated with tweets
+        opinions: [], // Will be populated with opinions
         lastUpdated: new Date().toISOString(),
         apiStatus: {
           remainingRequests: 100, // This would come from X API headers in a real implementation
@@ -52,13 +92,24 @@ const Index = () => {
         }
       };
       
+      const mockTweets = generateMockTweets(keywords, 50);
+      topicData.notableTweets = mockTweets;
+      
+      const opinions = groupTweetsIntoOpinions(mockTweets);
+      const opinionsWithMomentum = calculateMomentum(opinions);
+      topicData.opinions = opinionsWithMomentum;
+      
+      const { rising, falling } = getTopOpinions(opinionsWithMomentum, 10);
+      setRisingOpinions(rising);
+      setFallingOpinions(falling);
+      
       // Add to topics and set as current
       setTopics(prev => [topicData, ...prev]);
       setCurrentTopic(topicData);
       
       toast({
         title: "Search complete",
-        description: `Found tweet counts for "${formData.topicName}"`,
+        description: `Found opinions about "${formData.topicName}" from the past 24 hours`,
       });
     } catch (error: any) {
       console.error("Error searching tweet counts:", error);
@@ -126,6 +177,11 @@ const Index = () => {
           {currentTopic && (
             <>
               <TrendChart data={currentTopic.trendData} topicName={currentTopic.name} />
+              
+              <OpinionMarket 
+                risingOpinions={risingOpinions}
+                fallingOpinions={fallingOpinions}
+              />
               
               <TopicHistory 
                 topics={topics} 
