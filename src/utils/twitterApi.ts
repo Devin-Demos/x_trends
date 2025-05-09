@@ -35,10 +35,10 @@ interface SearchOptions {
 const searchCache: Record<string, { timestamp: number; data: TrendPoint[]; nextToken?: string }> = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Helper function to get date 3 days ago in ISO format
-function getThreeDaysAgo(): string {
+// Helper function to get date 5 days ago in ISO format
+function getFiveDaysAgo(): string {
   const date = new Date();
-  date.setDate(date.getDate() - 3);
+  date.setDate(date.getDate() - 5);
   return date.toISOString();
 }
 
@@ -47,7 +47,7 @@ async function fetchAllPages(keywords: string[], options: SearchOptions = {}): P
   let allPoints: TrendPoint[] = [];
   const currentOptions = {
     ...options,
-    startTime: options.startTime || getThreeDaysAgo(),
+    startTime: options.startTime || getFiveDaysAgo(),
     granularity: options.granularity || 'hour'
   };
   
@@ -79,7 +79,7 @@ export async function searchTweetCounts(keywords: string[], options: SearchOptio
     // Set up the request to our proxy server
     const response = await api.post<TwitterCountResponse>(`${API_BASE_URL}/search/counts`, {
       keywords,
-      startTime: options.startTime || getThreeDaysAgo(),
+      startTime: options.startTime || getFiveDaysAgo(),
       endTime: options.endTime,
       nextToken: options.nextToken,
       granularity: options.granularity || 'hour'
@@ -119,9 +119,9 @@ function generateMockTrendPoints(): TrendPoint[] {
   const points: TrendPoint[] = [];
   const now = new Date();
   
-  // Generate hourly points for the last 3 days
-  for (let i = 0; i < 72; i++) { // 3 days * 24 hours
-    const timestamp = new Date(now.getTime() - (72 - i) * 60 * 60 * 1000).toISOString();
+  // Generate hourly points for the last 5 days
+  for (let i = 0; i < 120; i++) { // 5 days * 24 hours
+    const timestamp = new Date(now.getTime() - (120 - i) * 60 * 60 * 1000).toISOString();
     points.push({
       timestamp,
       count: Math.floor(Math.random() * 1000) + 100 // Random count between 100 and 1100
