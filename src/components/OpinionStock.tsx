@@ -1,10 +1,11 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Opinion } from '../types';
-import { ArrowUpCircle, ArrowDownCircle, TrendingUp, TrendingDown, ExternalLink } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, TrendingDown, ExternalLink, MessageSquare, Heart, Repeat } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Progress } from './ui/progress';
 
 interface OpinionStockProps {
   opinion: Opinion;
@@ -39,9 +40,16 @@ const OpinionStock: React.FC<OpinionStockProps> = ({ opinion, isRising }) => {
   };
   
   const getTwitterSearchUrl = () => {
-    const searchQuery = encodeURIComponent(`"${opinion.text.substring(0, 100)}"`);
-    return `https://twitter.com/search?q=${searchQuery}&src=typed_query&f=live`;
+    const keywordQuery = opinion.keywords.slice(0, 3).join(' OR ');
+    return `https://twitter.com/search?q=${encodeURIComponent(keywordQuery)}&src=typed_query&f=live`;
   };
+  
+  const avgEngagementPerTweet = Math.round(opinion.agreement / (opinion.tweetCount || 1));
+  
+  // Estimate likes, replies, and retweets based on total engagement
+  const estimatedLikes = Math.round(opinion.agreement * 0.6);
+  const estimatedReplies = Math.round(opinion.agreement * 0.2);
+  const estimatedRetweets = Math.round(opinion.agreement * 0.2);
   
   return (
     <Card className={`mb-2 border-l-4 ${isRising ? 'border-l-green-500' : 'border-l-red-500'}`}>
@@ -85,6 +93,37 @@ const OpinionStock: React.FC<OpinionStockProps> = ({ opinion, isRising }) => {
                 </Badge>
               ))}
             </div>
+            
+            {/* Engagement metrics visualization */}
+            <div className="mb-3 space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <Heart className="h-3 w-3 text-red-500" />
+                  <span>Likes</span>
+                </div>
+                <span>{estimatedLikes.toLocaleString()}</span>
+              </div>
+              <Progress value={60} className="h-1" />
+              
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <MessageSquare className="h-3 w-3 text-blue-500" />
+                  <span>Replies</span>
+                </div>
+                <span>{estimatedReplies.toLocaleString()}</span>
+              </div>
+              <Progress value={20} className="h-1" />
+              
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1">
+                  <Repeat className="h-3 w-3 text-green-500" />
+                  <span>Retweets</span>
+                </div>
+                <span>{estimatedRetweets.toLocaleString()}</span>
+              </div>
+              <Progress value={20} className="h-1" />
+            </div>
+            
             <div>
               <a 
                 href={getTwitterSearchUrl()} 
@@ -93,7 +132,7 @@ const OpinionStock: React.FC<OpinionStockProps> = ({ opinion, isRising }) => {
                 className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800"
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
-                View related tweets
+                View all {opinion.tweetCount} tweets
               </a>
             </div>
           </div>
@@ -101,8 +140,13 @@ const OpinionStock: React.FC<OpinionStockProps> = ({ opinion, isRising }) => {
             <div className="text-sm text-muted-foreground">
               {new Date(opinion.createdAt).toLocaleDateString()}
             </div>
-            <div className="text-sm">
-              {opinion.tweetCount} tweets
+            <div className="flex flex-col items-end">
+              <div className="text-sm font-semibold">
+                {opinion.tweetCount} tweets
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {avgEngagementPerTweet} avg. engagement
+              </div>
             </div>
           </div>
         </div>

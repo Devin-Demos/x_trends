@@ -116,47 +116,108 @@ export function extractKeywords(text: string): string[] {
 export function groupTweetsIntoOpinions(tweets: Tweet[]): Opinion[] {
   if (!tweets || tweets.length === 0) return [];
   
-  const opinions: Opinion[] = [];
+  const tweetAnalysis = tweets.map(tweet => ({
+    tweet,
+    keywords: extractKeywords(tweet.text),
+    sentiment: analyzeSentiment(tweet.text)
+  }));
+  
+  const opinionGroups: Tweet[][] = [];
   const processedTweets = new Set<string>();
   
-  for (const tweet of tweets) {
+  for (const { tweet, keywords, sentiment } of tweetAnalysis) {
     if (processedTweets.has(tweet.id)) continue;
     
-    const keywords = extractKeywords(tweet.text);
-    const sentiment = analyzeSentiment(tweet.text);
-    
-    const similarTweets = tweets.filter(t => {
-      if (t.id === tweet.id || processedTweets.has(t.id)) return false;
-      
-      const tweetKeywords = extractKeywords(t.text);
-      const commonKeywords = keywords.filter(k => tweetKeywords.includes(k));
-      return commonKeywords.length >= 2;
-    });
+    const similarTweets = tweetAnalysis
+      .filter(({ tweet: t, sentiment: s }) => {
+        if (t.id === tweet.id || processedTweets.has(t.id)) return false;
+        
+        const sentimentMatch = 
+          (sentiment > 0.1 && s > 0.1) || 
+          (sentiment < -0.1 && s < -0.1) || 
+          (sentiment >= -0.1 && sentiment <= 0.1 && s >= -0.1 && s <= 0.1);
+        
+        if (!sentimentMatch) return false;
+        
+        const tKeywords = extractKeywords(t.text);
+        const commonKeywords = keywords.filter(k => tKeywords.includes(k));
+        
+        if (commonKeywords.length >= 2) return true;
+        
+        const tweetWords = new Set(tweet.text.toLowerCase().split(/\s+/));
+        const otherWords = new Set(t.text.toLowerCase().split(/\s+/));
+        
+        const intersection = [...tweetWords].filter(word => otherWords.has(word)).length;
+        const union = tweetWords.size + otherWords.size - intersection;
+        const similarity = intersection / union;
+        
+        return similarity > 0.3; // Threshold for text similarity
+      })
+      .map(({ tweet: t }) => t);
     
     processedTweets.add(tweet.id);
     similarTweets.forEach(t => processedTweets.add(t.id));
     
-    const allRelatedTweets = [tweet, ...similarTweets];
-    const totalEngagement = allRelatedTweets.reduce((sum, t) => {
-      return sum + t.public_metrics.retweet_count + 
-                  t.public_metrics.like_count + 
-                  t.public_metrics.reply_count;
+    opinionGroups.push([tweet, ...similarTweets]);
+  }
+  
+  const opinions = opinionGroups.map(tweetGroup => {
+    const mainTweet = tweetGroup.reduce((best, current) => {
+      const bestEngagement = 
+        best.public_metrics.retweet_count + 
+        best.public_metrics.like_count + 
+        best.public_metrics.reply_count;
+      
+      const currentEngagement = 
+        current.public_metrics.retweet_count + 
+        current.public_metrics.like_count + 
+        current.public_metrics.reply_count;
+      
+      return currentEngagement > bestEngagement ? current : best;
+    }, tweetGroup[0]);
+    
+    const totalEngagement = tweetGroup.reduce((sum, t) => {
+      return sum + 
+        t.public_metrics.retweet_count + 
+        t.public_metrics.like_count + 
+        t.public_metrics.reply_count + 
+        t.public_metrics.quote_count;
     }, 0);
     
-    opinions.push({
-      id: tweet.id,
-      text: tweet.text,
-      sentiment,
+    const allKeywords = tweetGroup.flatMap(t => extractKeywords(t.text));
+    const keywordFrequency: Record<string, number> = {};
+    
+    allKeywords.forEach(keyword => {
+      keywordFrequency[keyword] = (keywordFrequency[keyword] || 0) + 1;
+    });
+    
+    const commonKeywords = Object.entries(keywordFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(entry => entry[0]);
+    
+    const avgSentiment = tweetGroup.reduce((sum, t) => sum + analyzeSentiment(t.text), 0) / tweetGroup.length;
+    
+    return {
+      id: mainTweet.id,
+      text: mainTweet.text,
+      sentiment: avgSentiment,
       momentum: 0, // Will be calculated later
       agreement: totalEngagement,
       source: 'twitter',
-      keywords,
-      createdAt: tweet.created_at,
-      tweetCount: allRelatedTweets.length
-    });
+      keywords: commonKeywords,
+      createdAt: mainTweet.created_at,
+      tweetCount: tweetGroup.length
+    };
+  });
+  
+  const multiTweetOpinions = opinions.filter(o => o.tweetCount > 1);
+  
+  if (multiTweetOpinions.length >= 10) {
+    return multiTweetOpinions as Opinion[];
   }
   
-  return opinions;
+  return opinions.sort((a, b) => b.agreement - a.agreement) as Opinion[];
 }
 
 export function calculateMomentum(opinions: Opinion[], previousOpinions: Opinion[] = []): Opinion[] {
