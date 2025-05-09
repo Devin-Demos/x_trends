@@ -43,4 +43,4 @@ export interface SearchFormData {
     startTime?: string;
     endTime?: string;
   };
-} 
+}  
