@@ -56,16 +56,11 @@ const Index = () => {
     
     try {
       let keywords = formData.keywords.split(',').map(k => k.trim());
-      const aiTechKeywords = ['AI', 'artificial intelligence', 'tech startup', 'technology', 'startup', 'innovation'];
-      
-      if (!keywords.some(k => aiTechKeywords.some(tk => k.toLowerCase().includes(tk.toLowerCase())))) {
-        keywords = [...keywords, ...aiTechKeywords];
-      }
       
       // Show initial loading state
       toast({
         title: "Searching tweets",
-        description: "Fetching AI & tech startup opinions from the past 24 hours...",
+        description: `Fetching opinions about "${formData.topicName}" from the past 24 hours...`,
       });
       
       const oneDayAgo = new Date();

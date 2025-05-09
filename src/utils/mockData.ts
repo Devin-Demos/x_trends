@@ -4,28 +4,37 @@ export function generateMockTweets(keywords: string[], count: number = 50): Twee
   const tweets: Tweet[] = [];
   const now = new Date();
   
-  const opinions = [
-    "AI is revolutionizing how we build software. The productivity gains are incredible!",
-    "ChatGPT and other LLMs are overhyped. They hallucinate too much to be reliable.",
-    "The new Apple Vision Pro is a game-changer for spatial computing.",
-    "Anthropic's Claude 3 is significantly better than GPT-4 for most enterprise use cases.",
-    "Tech startups are facing a funding winter. VCs are much more selective now.",
-    "Nvidia's stock price surge is justified by their AI chip dominance.",
-    "Open source AI models will eventually outperform closed models like GPT-4.",
-    "The AI safety concerns are overblown. We're nowhere near AGI or superintelligence.",
-    "Regulation will slow down AI innovation in the US and Europe compared to China.",
-    "Robotics startups are the next big wave after generative AI.",
-    "The metaverse is dead. AR/VR startups need to pivot to AI to survive.",
-    "Crypto and web3 startups are making a comeback as Bitcoin reaches new highs.",
-    "AI agents that can autonomously perform tasks will be the next breakthrough.",
-    "Tech layoffs are creating a great opportunity for startups to hire top talent.",
-    "Vertical AI solutions for specific industries will create more value than horizontal platforms.",
-    "The AI bubble will burst within 2 years. Most AI startups will fail.",
-    "Edge AI is the future. Running models locally will be more important than cloud APIs.",
-    "Quantum computing startups are overpromising and underdelivering.",
-    "Biotech startups using AI for drug discovery will create the next trillion-dollar companies.",
-    "Self-driving technology has hit a plateau. Full autonomy is still decades away."
-  ];
+  const generateOpinionsFromKeywords = (keywords: string[]): string[] => {
+    const baseOpinions = [
+      "This is gaining a lot of traction in the market right now!",
+      "I'm skeptical about the hype around this. Seems overvalued.",
+      "The latest developments are really impressive.",
+      "This is significantly better than previous versions for most use cases.",
+      "Funding in this sector is slowing down. Investors are more selective now.",
+      "The price surge is justified by their market dominance.",
+      "Open alternatives will eventually outperform the closed options.",
+      "The concerns are overblown. We're nowhere near seeing major disruption yet.",
+      "Regulation will slow down innovation in this space in the US and Europe.",
+      "This is the next big wave after recent trends.",
+      "The old approach is dead. Companies need to pivot to survive.",
+      "This sector is making a comeback as prices reach new highs.",
+      "Autonomous solutions in this space will be the next breakthrough.",
+      "Recent layoffs are creating opportunities for new players to hire top talent.",
+      "Specialized solutions for specific industries will create more value than general platforms.",
+      "This bubble will burst within 2 years. Most companies will fail.",
+      "Local processing is the future. Running systems on-device will be more important than cloud.",
+      "Companies in this space are overpromising and underdelivering.",
+      "Using advanced technology for this application will create the next trillion-dollar companies.",
+      "Progress has hit a plateau. Full implementation is still years away."
+    ];
+    
+    return baseOpinions.map(opinion => {
+      const keyword = keywords[Math.floor(Math.random() * keywords.length)];
+      return keyword + " " + opinion;
+    });
+  };
+  
+  const opinions = generateOpinionsFromKeywords(keywords);
   
   for (let i = 0; i < count; i++) {
     const opinionIndex = Math.floor(Math.random() * opinions.length);
